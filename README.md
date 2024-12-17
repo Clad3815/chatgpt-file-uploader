@@ -55,8 +55,8 @@ For GPT-4o users who have native file upload, this plugin provides a superior al
 ## 🛠️ Technical Details
 
 ### Model Compatibility
-- **Claude Models**: Adds file upload capability for o1-mini, o1, and o1-pro
-- **GPT-4**: Provides direct file content transmission, bypassing the default RAG-based file processing
+- **O1 Models**: Adds file upload capability for o1-mini, o1, and o1-pro
+- **GPT-4o**: Provides direct file content transmission, bypassing the default RAG-based file processing
 
 ### Supported File Types
 - Code files (`.js`, `.py`, `.html`, `.css`, `.json`, etc.)
