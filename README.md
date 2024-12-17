@@ -6,7 +6,10 @@ A powerful Tampermonkey userscript that adds true file upload capabilities to Ch
   <img src="images/1.png" alt="ChatGPT File Upload Interface" style="max-width: 80%; height: auto;">
 </div>
 
+After getting frustrated with constantly copy-pasting code into ChatGPT to work with o1-pro, I built something that I think you'll find useful.
+
 ## 🌟 Why This Tool?
+
 
 While ChatGPT's interface has evolved, it still lacks native file upload support for many models (e.g., o1-mini, o1, o1-pro). 
 For GPT-4o users who have native file upload, this plugin provides a superior alternative by sending the complete file content directly in the conversation, bypassing ChatGPT's RAG-based file processing. This userscript provides:
