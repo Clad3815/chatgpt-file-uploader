@@ -1,6 +1,6 @@
 # Real ChatGPT File Uploader
 
-A powerful Tampermonkey userscript that adds true file upload capabilities to ChatGPT, enabling seamless file sharing and management within your conversations.
+A powerful Tampermonkey userscript that adds true file upload capabilities to ChatGPT, enabling seamless file sharing and management within your conversations. Now with support for folder uploads and GitHub repository imports.
 
 <div align="center">
   <img src="images/1.png" alt="ChatGPT File Upload Interface" style="max-width: 80%; height: auto;">
@@ -9,7 +9,6 @@ A powerful Tampermonkey userscript that adds true file upload capabilities to Ch
 After getting frustrated with constantly copy-pasting code into ChatGPT to work with o1-pro, I built something that I think you'll find useful.
 
 ## 🌟 Why This Tool?
-
 
 While ChatGPT's interface has evolved, it still lacks native file upload support for many models (e.g., o1-mini, o1, o1-pro). 
 For GPT-4o users who have native file upload, this plugin provides a superior alternative by sending the complete file content directly in the conversation, bypassing ChatGPT's RAG-based file processing. This userscript provides:
@@ -20,6 +19,8 @@ For GPT-4o users who have native file upload, this plugin provides a superior al
 - Clean UI integration with the ChatGPT interface
 - Syntax highlighting for code files
 - Dark/Light theme support
+- **New**: Upload entire folders
+- **New**: Import files directly from GitHub repositories
 
 <div align="center">
   <img src="images/2.png" alt="File Preview and Management" style="max-width: 80%; height: auto;">
@@ -28,6 +29,8 @@ For GPT-4o users who have native file upload, this plugin provides a superior al
 ## ✨ Key Features
 
 - 📤 **Direct File Upload**: Upload files directly through ChatGPT's interface
+- 📁 **Folder Upload**: Upload entire folders and manage their contents
+- 🌐 **GitHub Integration**: Import files from GitHub repositories using a stepper-based flow
 - 👀 **Smart Preview**: Preview files before sending, with syntax highlighting for code
 - 🎨 **Syntax Highlighting**: Automatic language detection and highlighting for common file types
 - 📝 **Message Integration**: Files appear neatly above your messages
@@ -50,8 +53,8 @@ For GPT-4o users who have native file upload, this plugin provides a superior al
 
 1. Open ChatGPT
 2. Click the "+" menu next to the text input
-3. Select "Upload Files (Custom)"
-4. Choose one or more files
+3. Select "Upload Files (Custom)" or "Upload from GitHub"
+4. Choose one or more files or folders
 5. Preview and manage your files
 6. Send your message as usual
 
@@ -77,12 +80,27 @@ Files are automatically formatted in XML for optimal ChatGPT processing:
 </user_attachments>
 ```
 
+### GitHub Integration
+- Import files from any public GitHub repository
+- Use a stepper-based flow to select files and folders
+
+
+<div align="center">
+  <img src="images/4.png" alt="Github Stepper 1" style="max-width: 80%; height: auto;">
+</div>
+
+
+<div align="center">
+  <img src="images/5.png" alt="Github Stepper 2" style="max-width: 80%; height: auto;">
+</div>
+
 ## 💡 Tips & Tricks
 
-- Upload multiple files at once for batch processing
+- Upload multiple files or entire folders at once for batch processing
 - Use the preview feature to verify file contents
 - Files can be downloaded from the preview modal
 - Remove files easily before sending if needed
+- Use the GitHub import feature to quickly bring in code from repositories
 
 ## 🤝 Contributing
 
