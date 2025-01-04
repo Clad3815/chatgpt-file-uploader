@@ -52,8 +52,8 @@ For GPT-4o users who have native file upload, this plugin provides a superior al
 ## 🚀 How to Use
 
 1. Open ChatGPT
-2. Click the "+" menu next to the text input
-3. Select "Upload Files (Custom)" or "Upload from GitHub"
+2. Click the paper clip button next to the text input
+3. Select "Upload Files" or "Upload Folder" or "Upload from GitHub"
 4. Choose one or more files or folders
 5. Preview and manage your files
 6. Send your message as usual
