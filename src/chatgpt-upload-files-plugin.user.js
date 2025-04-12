@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT File Uploader + GitHub
 // @namespace    https://github.com/Clad3815/chatgpt-file-uploader
-// @version      4.0.0
+// @version      4.0.2
 // @updateURL    https://github.com/Clad3815/chatgpt-file-uploader/raw/refs/heads/main/src/chatgpt-upload-files-plugin.user.js
 // @downloadURL  https://github.com/Clad3815/chatgpt-file-uploader/raw/refs/heads/main/src/chatgpt-upload-files-plugin.user.js
 // @description  Adds true file upload capabilities to ChatGPT with preview, syntax highlighting, and proper file handling. Upload local files/folders or from GitHub using a stepper-based modal flow - features not available in the standard interface.
@@ -13,24 +13,14 @@
 // @connect      api.github.com
 // @connect      raw.githubusercontent.com
 // @require      https://cdn.jsdelivr.net/npm/jquery@3.6.4/dist/jquery.min.js
-// @require      https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js
-// @require      https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js
-// @require      https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js
-// @require      https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markup.min.js
-// @require      https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-css.min.js
-// @require      https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js
-// @require      https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markdown.min.js
-// @resource     PRISM_CSS https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css
 // ==/UserScript==
 
 (function () {
     'use strict';
 
     //------------------------------------------------------------------
-    // 0) Inject necessary CSS (Prism + jsTree + minimal custom)
+    // 0) Inject necessary CSS (jsTree + minimal custom)
     //------------------------------------------------------------------
-    const prismCss = GM_getResourceText('PRISM_CSS');
-    if (prismCss) GM_addStyle(prismCss);
 
     const jstreeCss = GM_getResourceText('JSTREE_CSS');
     if (jstreeCss) {
@@ -298,13 +288,7 @@
                 overflow-auto
             `
         });
-        const ext = fileName.split('.').pop().toLowerCase();
-        const lang = getLanguageFromExtension(ext);
-        if (lang) {
-            pre.innerHTML = Prism.highlight(fileContent, Prism.languages[lang], lang);
-        } else {
-            pre.textContent = fileContent;
-        }
+        pre.textContent = fileContent;
         content.appendChild(pre);
 
         modal.append(header, content);
@@ -330,234 +314,150 @@
         const ta = document.querySelector('#prompt-textarea');
         if (!ta) return;
 
-        let preview = document.getElementById('files-preview');
-        if (!preview) {
-            const parent = ta.closest('.relative.flex');
-            if (!parent) return;
-            preview = createEl('div', {
-                attrs: { id: 'files-preview' },
-                className: `
-                    mt-3 p-4 rounded-xl
-                    border border-token-border-light dark:border-token-border-dark
-                    bg-token-main-surface-primary dark:bg-token-main-surface-secondary
-                    text-token-text-primary
-                    max-h-[400px] overflow-y-auto
-                `
-            });
-            parent.parentNode.insertBefore(preview, parent.nextSibling);
-        }
-        preview.innerHTML = '';
+        // Find the container where the textarea and potential file previews reside
+        const composerContainer = ta.closest('.relative.flex.w-full.flex-auto.flex-col');
+        if (!composerContainer) return;
 
-        if (uploadedFiles.length === 0) {
-            preview.remove();
-            return;
-        }
+        // Define IDs for our containers
+        const outerContainerId = 'files-pill-outer-container';
+        const rowContainerId = 'files-pill-row-container';
 
-        // Header avec compteur et bouton toggle
-        const header = createEl('div', {
-            className: 'flex items-center justify-between mb-3 pb-2 border-b border-token-border-light'
-        });
+        // Get or create the outer container for the pills
+        let outerContainer = composerContainer.querySelector(`#${outerContainerId}`);
 
-        const headerLeft = createEl('div', {
-            className: 'text-sm font-medium flex items-center gap-2',
-            html: `
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
-                    <polyline points="13 2 13 9 20 9"/>
-                </svg>
-                Files attached (${uploadedFiles.length})
-            `
-        });
-
-        const toggleBtn = createEl('button', {
-            className: 'text-sm text-token-text-secondary hover:text-token-text-primary transition-colors',
-            html: `
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2" class="transform transition-transform">
-                    <path d="M19 9l-7 7-7-7"/>
-                </svg>
-            `
-        });
-
-        header.append(headerLeft, toggleBtn);
-        preview.appendChild(header);
-
-        // Container pour la liste des fichiers
-        const filesContainer = createEl('div', {
-            className: `
-                grid gap-2 grid-cols-1
-                overflow-hidden transition-all duration-300
-            `
-        });
-        preview.appendChild(filesContainer);
-
-        // État replié/déplié
-        let isExpanded = true;
-        toggleBtn.addEventListener('click', () => {
-            isExpanded = !isExpanded;
-            filesContainer.style.maxHeight = isExpanded ? '500px' : '0px';
-            toggleBtn.querySelector('svg').style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)';
-        });
-
-        // Grouper les fichiers par dossier
-        const filesByFolder = {};
-        uploadedFiles.forEach((fileObj, idx) => {
-            const parts = fileObj.name.split('/');
-            const folder = parts.length > 1 ? parts.slice(0, -1).join('/') : '';
-            if (!filesByFolder[folder]) filesByFolder[folder] = [];
-            filesByFolder[folder].push({ ...fileObj, index: idx });
-        });
-
-        // Créer les groupes de fichiers
-        Object.entries(filesByFolder).forEach(([folder, files]) => {
-            if (folder) {
-                // Créer un groupe pour les fichiers dans des dossiers
-                const folderGroup = createEl('div', {
-                    className: 'border border-token-border-light rounded-lg mb-2'
+        if (uploadedFiles.length > 0) {
+            if (!outerContainer) {
+                outerContainer = createEl('div', {
+                    attrs: { id: outerContainerId },
+                    className: 'mb-3 flex flex-col gap-2' // Adjusted margin bottom
                 });
 
-                const folderHeader = createEl('div', {
-                    className: `
-                        flex items-center justify-between p-2
-                        bg-token-main-surface-secondary cursor-pointer
-                        hover:bg-opacity-70 rounded-t-lg
-                    `,
-                    html: `
-                        <div class="flex items-center gap-2">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                                 stroke="currentColor" stroke-width="2" class="transform transition-transform">
-                                <path d="M19 9l-7 7-7-7"/>
-                            </svg>
-                            <span class="font-medium text-sm">${folder} (${files.length})</span>
-                        </div>
-                    `
+                const rowContainer = createEl('div', {
+                    attrs: { id: rowContainerId },
+                    className: '-ms-1\\.5 flex flex-nowrap gap-2 overflow-x-auto p-1\\.5' // Ensure no-scrollbar is removed
                 });
 
-                const folderContent = createEl('div', {
-                    className: 'p-2 border-t border-token-border-light'
-                });
+                outerContainer.appendChild(rowContainer);
 
-                let isFolderExpanded = true;
-                folderHeader.addEventListener('click', () => {
-                    isFolderExpanded = !isFolderExpanded;
-                    folderContent.style.display = isFolderExpanded ? 'block' : 'none';
-                    folderHeader.querySelector('svg').style.transform =
-                        isFolderExpanded ? 'rotate(0deg)' : 'rotate(-90deg)';
-                });
-
-                files.forEach(fileObj => {
-                    folderContent.appendChild(createFileBlock(fileObj, true)); // true pour afficher le bouton delete
-                });
-
-                folderGroup.append(folderHeader, folderContent);
-                filesContainer.appendChild(folderGroup);
-            } else {
-                // Fichiers à la racine
-                files.forEach(fileObj => {
-                    filesContainer.appendChild(createFileBlock(fileObj, true)); // true pour afficher le bouton delete
-                });
+                // Insert the container *before* the textarea's grid container
+                const textareaGrid = composerContainer.querySelector('.relative.ms-1\\.5.grid');
+                if (textareaGrid) {
+                    composerContainer.insertBefore(outerContainer, textareaGrid);
+                } else {
+                    // Fallback: insert at the beginning of the composer container
+                    composerContainer.insertBefore(outerContainer, composerContainer.firstChild);
+                }
             }
-        });
+
+            // Get the row container (it must exist now)
+            const rowContainer = outerContainer.querySelector(`#${rowContainerId}`);
+            if (!rowContainer) return; // Should not happen
+
+            // Clear previous pills
+            rowContainer.innerHTML = '';
+
+            // Add current pills
+            uploadedFiles.forEach((file, index) => {
+                // Ensure the file object has the index for the remove function
+                file.index = index;
+                const pillElement = createFileBlock(file, true); // Pass true to show delete button
+                rowContainer.appendChild(pillElement);
+            });
+
+        } else {
+            // If no files, remove the outer container if it exists
+            if (outerContainer) {
+                outerContainer.remove();
+            }
+        }
     }
 
-    // Nouvelle fonction pour créer un bloc de fichier
-    function createFileBlock(fileObj, showDelete = false) {
-        const block = createEl('div', {
+    // Helper pour créer un bloc de fichier (maintenant unifié et style "pilule")
+    function createFileBlock(file, showDelete = false) {
+        const blockWrapper = createEl('div', {
+            className: `group text-token-text-primary relative inline-block text-sm`
+        });
+
+        const mainBlock = createEl('div', {
             className: `
-                relative bg-token-main-surface-secondary
-                rounded-lg p-3 group
-                hover:bg-opacity-70 transition-all
+                border-token-border-light bg-token-main-surface-primary
+                relative overflow-visible border rounded-lg
+                cursor-pointer hover:bg-token-main-surface-secondary transition-colors
+                w-64 // Fixed width for consistency in horizontal layout
             `
         });
 
-        const row = createEl('div', { className: 'flex items-start gap-3' });
-
-        const icon = createEl('div', {
-            className: `
-                flex-shrink-0 w-8 h-8
-                flex items-center justify-center
-                rounded-lg bg-token-main-surface-primary
-            `,
-            html: `
-                <svg width="16" height="16" viewBox="0 0 24 24"
-                     fill="none" stroke="currentColor" stroke-width="2"
-                     class="text-token-text-secondary">
-                    <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
-                    <polyline points="13 2 13 9 20 9"/>
-                </svg>
-            `
+        const content = createEl('div', {
+            className: 'p-2'
         });
 
-        const infoBox = createEl('div', { className: 'flex-1 min-w-0' });
-        const fName = createEl('div', {
-            className: 'font-medium text-sm truncate',
-            text: fileObj.name.split('/').pop()
-        });
-        const fDetails = createEl('div', {
-            className: 'text-xs text-token-text-secondary mt-0.5',
-            text: fileObj.size
+        const flexRow = createEl('div', {
+            className: 'flex flex-row items-center gap-2'
         });
 
-        // Actions
-        const actions = createEl('div', {
-            className: `
-                absolute top-2 right-2
-                flex gap-1
-                opacity-0 group-hover:opacity-100
-                transition-opacity duration-200
-            `
+        const iconContainer = createEl('div', {
+            className: 'relative h-8 w-8 shrink-0 flex items-center justify-center rounded-lg bg-token-main-surface-secondary text-token-text-secondary' // Adjusted icon style
         });
+        iconContainer.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2">
+                <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+                <polyline points="13 2 13 9 20 9"/>
+            </svg>
+        `;
 
-        const viewBtn = createEl('button', {
-            className: `
-                p-1.5 rounded-md
-                hover:bg-token-main-surface-primary
-                text-token-text-secondary hover:text-token-text-primary
-            `,
-            html: `
-                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                    <circle cx="12" cy="12" r="3"/>
-                </svg>
-            `
+        const infoContainer = createEl('div', {
+            className: 'overflow-hidden flex-1'
         });
-        viewBtn.addEventListener('click', (ev) => {
-            ev.stopPropagation();
-            showModal(fileObj.name, fileObj.content, fileObj);
+        const fileName = createEl('div', {
+            className: 'truncate font-medium text-xs', // Smaller font
+            text: file.name.split('/').pop()
         });
+        const fileDetails = createEl('div', {
+            className: 'text-token-text-secondary truncate text-xs mt-0.5',
+            text: formatFileDetails(file)
+        });
+        infoContainer.append(fileName, fileDetails);
 
-        const delBtn = createEl('button', {
-            className: `
-                p-1.5 rounded-md
-                hover:bg-red-100 dark:hover:bg-red-900/30
-                text-token-text-secondary hover:text-red-500
-            `,
-            html: `
-                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path d="M18 6L6 18M6 6l12 12"/>
-                </svg>
-            `,
-            attrs: {
-                title: 'Remove file'
-            }
-        });
-        delBtn.addEventListener('click', (ev) => {
-            ev.stopPropagation();
-            removeFile(fileObj.index);
+        flexRow.append(iconContainer, infoContainer);
+        content.appendChild(flexRow);
+        mainBlock.appendChild(content);
+        blockWrapper.appendChild(mainBlock);
+
+        mainBlock.addEventListener('click', (ev) => {
+            // Prevent modal from opening if delete button is clicked
+            if (ev.target.closest('.delete-file-btn')) return;
+            showModal(file.name, file.content, file);
         });
 
         if (showDelete) {
-            actions.append(viewBtn, delBtn);
-        } else {
-            actions.append(viewBtn);
+            const delBtn = createEl('button', {
+                className: `
+                    delete-file-btn
+                    absolute end-1 top-1 -translate-y-1/2 translate-x-1/2
+                    rounded-full transition-opacity
+                    border-[3px] border-token-main-surface-primary dark:border-token-main-surface-secondary // Match background
+                    bg-token-main-surface-tertiary dark:bg-token-main-surface-tertiary // Button background
+                    p-[2px] text-token-text-secondary dark:text-token-text-primary // Icon color
+                    opacity-0 group-hover:opacity-100 // Show on hover
+                `,
+                attrs: {
+                    title: 'Remove file'
+                }
+            });
+            delBtn.innerHTML = `
+                <svg width="12" height="12" viewBox="0 0 29 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M7.30286 6.80256C7.89516 6.21026 8.85546 6.21026 9.44775 6.80256L14.5003 11.8551L19.5529 6.80256C20.1452 6.21026 21.1055 6.21026 21.6978 6.80256C22.2901 7.39485 22.2901 8.35515 21.6978 8.94745L16.6452 14L21.6978 19.0526C22.2901 19.6449 22.2901 20.6052 21.6978 21.1974C21.1055 21.7897 20.1452 21.7897 19.5529 21.1974L14.5003 16.1449L9.44775 21.1974C8.85546 21.7897 7.89516 21.7897 7.30286 21.1974C6.71057 20.6052 6.71057 19.6449 7.30286 19.0526L12.3554 14L7.30286 8.94745C6.71057 8.35515 6.71057 7.39485 7.30286 6.80256Z" fill="currentColor"></path>
+                </svg>
+            `;
+            delBtn.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                removeFile(file.index); // Assumes file object has index property
+            });
+            blockWrapper.appendChild(delBtn);
         }
 
-        infoBox.append(fName, fDetails);
-        row.append(icon, infoBox);
-        block.append(row, actions);
-        block.addEventListener('click', () => showModal(fileObj.name, fileObj.content, fileObj));
-
-        return block;
+        return blockWrapper;
     }
 
     //------------------------------------------------------------------
@@ -753,86 +653,6 @@
         }
 
         processedMessages[msgId] = { originalText: origText, filesFound: foundFiles };
-    }
-
-    // Helper pour créer un bloc de fichier
-    function createFileBlock(file, showDelete = false) {
-        const block = createEl('div', {
-            className: `
-                group relative flex items-center gap-3
-                rounded-lg border border-token-border-light
-                bg-token-main-surface-secondary p-2
-                hover:bg-token-main-surface-tertiary transition-colors duration-200
-            `
-        });
-
-        const icon = createEl('div', {
-            className: `
-                flex items-center justify-center w-6 h-6
-                rounded-lg bg-token-main-surface-primary
-                text-token-text-secondary
-            `,
-            html: `
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2">
-                    <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
-                    <polyline points="13 2 13 9 20 9"/>
-                </svg>
-            `
-        });
-
-        const fileInfo = createEl('div', { className: 'flex-1 min-w-0' });
-        const name = createEl('div', {
-            className: 'text-xs font-medium truncate',
-            text: file.name.split('/').pop()
-        });
-        const details = createEl('div', {
-            className: 'text-xs text-token-text-secondary mt-0.5',
-            text: formatFileDetails(file)
-        });
-        fileInfo.append(name, details);
-
-        const viewBtn = createEl('button', {
-            className: `
-                absolute right-2 opacity-0 group-hover:opacity-100
-                transition-opacity duration-200 text-xs py-1 px-2
-                rounded-md bg-token-main-surface-primary
-                hover:bg-token-main-surface-tertiary
-                text-token-text-primary border border-token-border-light
-            `,
-            text: 'View content'
-        });
-        viewBtn.addEventListener('click', () => showModal(file.name, file.content, file));
-
-        const delBtn = createEl('button', {
-            className: `
-                absolute right-2 opacity-0 group-hover:opacity-100
-                transition-opacity duration-200 text-xs py-1 px-2
-                rounded-md bg-token-main-surface-primary
-                hover:bg-token-main-surface-tertiary
-                text-token-text-primary border border-token-border-light
-            `,
-            text: 'Delete'
-        });
-        delBtn.addEventListener('click', (ev) => {
-            ev.stopPropagation();
-            removeFile(file.index);
-        });
-
-        const actions = createEl('div', {
-            className: 'absolute right-0 top-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200'
-        });
-
-        if (showDelete) {
-            actions.append(viewBtn, delBtn);
-        } else {
-            actions.append(viewBtn);
-        }
-
-        block.append(icon, fileInfo, actions);
-        block.addEventListener('click', () => showModal(file.name, file.content, file));
-
-        return block;
     }
 
     function observeUserMessages() {
@@ -1794,18 +1614,8 @@
             children: [
                 createEl('div', {
                     className: 'flex items-center justify-center text-token-text-secondary h-5 w-5', html: `
-                    <svg width="24" height="24" viewBox="0 0 24 24"
-                         fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M9 19c-4.97 1-5-2.16-7-2m14 2v-3.48A3.37
-                                 3.37 0 0 0 17.64 13c.75-.4
-                                 1.36-1.17 1.36-2.64
-                                 0-2-1.5-3-3.5-3
-                                 A3.75 3.75 0 0 0 12 9.77
-                                 A3.75 3.75 0 0 0
-                                 8.5 7c-2 0-3.5 1-3.5 3
-                                 0 1.47.61 2.24
-                                 1.36 2.64A3.37 3.37 0 0
-                                 0 6.36 16.52V20"/>
+                    <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" width="16" height="16">
+                        <path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.61-.25-1.22-.58-1.69 1.64-.17 3.41-.81 3.41-3.63 0-.81-.28-1.48-.78-2.02.08-.17.35-.91-.07-1.98 0 0-.63-.2-2.09.79-.6-.17-1.24-.26-1.88-.26-.64 0-1.28.09-1.88.26-1.46-1-2.09-.79-2.09-.79-.42 1.07-.15 1.81-.07 1.98-.5 1.01-.78 1.64-.78 2.45 0 2.82 1.77 3.46 3.41 3.63-.3 1.01-.58 1.91-.58 2.9 0 .21-.02.3-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"></path>
                     </svg>
                 `}),
                 createEl('div', {
